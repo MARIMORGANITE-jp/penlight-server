@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body {
+    margin: 0;
+    height: 100vh;
+    background: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+#penlight {
+    width: 40%;
+}
+</style>
+</head>
+<body>
+
+<img id="penlight" src="FksPenlight_WT.png">
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+const socket = io("http://192.168.11.11:3000");
+
+socket.on("changeColor", (color) => {
+    document.body.style.background = color;
+});
+
+let blinkInterval = null;
+
+socket.on("mode", (mode) => {
+
+    if (mode === "blink") {
+        startBlink();
+    }
+
+    if (mode === "normal") {
+        stopBlink();
+    }
+
+});
+function startBlink() {
+    stopBlink();
+
+    let on = true;
+
+    blinkInterval = setInterval(() => {
+        document.body.style.background = on ? "white" : "black";
+        on = !on;
+    }, 300); 
+}
+
+function stopBlink() {
+    if (blinkInterval) {
+        clearInterval(blinkInterval);
+        blinkInterval = null;
+    }
+}
+
+let currentColor = "red";
+
+socket.on("changeColor", (color) => {
+    currentColor = color;
+    document.body.style.background = color;
+});
+
+blinkInterval = setInterval(() => {
+    document.body.style.background = on ? currentColor : "black";
+    on = !on;
+}, 300);
+</script>
+
+</body>
+</html>

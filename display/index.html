@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<title>ペンライト</title>
+
+<style>
+body {
+    margin: 0;
+    height: 100vh;
+    background: black;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    overflow: hidden;
+    touch-action: none;
+}
+
+/* ペンライト */
+#penlight {
+    position: absolute;
+    width: 40%;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* 左右ボタン */
+button.main {
+    width: 25%;
+    height: 100%;
+    font-size: 30px;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: white;
+}
+
+/* モードボタン */
+#modeBtn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    padding: 12px 18px;
+    border-radius: 999px;
+    border: none;
+    color: white;
+    background: linear-gradient(45deg, #444, #222);
+    transition: 0.3s;
+}
+
+#modeBtn.live {
+    background: linear-gradient(45deg, #ff416c, #ff4b2b);
+    box-shadow: 0 0 20px rgba(255,75,43,0.8);
+}
+
+/* 全画面ボタン */
+#fullBtn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    padding: 10px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(0,0,0,0.5);
+    color: white;
+}
+</style>
+</head>
+
+<body>
+
+<button class="main" onclick="prevColor()">◀</button>
+<button class="main" onclick="nextColor()">▶</button>
+
+<button id="modeBtn" onclick="toggleMode()">ライブモードにする</button>
+<button id="fullBtn" onclick="toggleFullscreen()">全画面</button>
+
+<img id="penlight" src="FksPenlight_WT.png">
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+
+// ===== 接続 =====
+const socket = io("http://192.168.11.11:3000");
+
+// ===== 色 =====
+const colors = ["red","orange","yellow","green","blue","purple","pink","white"];
+
+let index = 0;
+let currentColor = colors[0];
+
+// ===== 状態 =====
+let isLiveMode = false;
+let blinkInterval = null;
+let isOn = true;
+
+// ===== 色変更 =====
+function updateColor() {
+    currentColor = colors[index];
+    document.body.style.background = currentColor;
+}
+
+function nextColor() {
+    if (isLiveMode) return;
+
+    index = (index + 1) % colors.length;
+    updateColor();
+
+    socket.emit("changeColor", currentColor);
+}
+
+function prevColor() {
+    if (isLiveMode) return;
+
+    index = (index - 1 + colors.length) % colors.length;
+    updateColor();
+
+    socket.emit("changeColor", currentColor);
+}
+
+// ===== モード切替 =====
+function toggleMode() {
+    isLiveMode = !isLiveMode;
+    const btn = document.getElementById("modeBtn");
+
+    if (isLiveMode) {
+        btn.textContent = "ライブ中";
+        btn.classList.add("live");
+    } else {
+        btn.textContent = "ローカル操作";
+        btn.classList.remove("live");
+        stopBlink();
+        updateColor();
+    }
+}
+
+// ===== Socket受信 =====
+socket.on("changeColor", (color) => {
+    currentColor = color;
+
+    if (isLiveMode && !blinkInterval) {
+        document.body.style.background = color;
+    }
+});
+
+socket.on("mode", (mode) => {
+    if (!isLiveMode) return;
+
+    if (mode === "blink") startBlink();
+    else stopBlink();
+});
+
+// ===== 点滅 =====
+function startBlink() {
+    stopBlink();
+    isOn = true;
+
+    blinkInterval = setInterval(() => {
+        document.body.style.background = isOn ? currentColor : "black";
+        isOn = !isOn;
+    }, 300);
+}
+
+function stopBlink() {
+    if (blinkInterval) {
+        clearInterval(blinkInterval);
+        blinkInterval = null;
+    }
+    document.body.style.background = currentColor;
+}
+
+// ===== スワイプ =====
+let startX = 0;
+let startY = 0;
+
+document.addEventListener("touchstart", (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+});
+
+document.addEventListener("touchend", (e) => {
+    if (isLiveMode) return;
+
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+
+    const diffX = endX - startX;
+    const diffY = endY - startY;
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+        if (diffX > 0) prevColor();
+        else nextColor();
+    }
+});
+
+// ===== ダブルタップ全画面 =====
+let lastTap = 0;
+let touchMoved = false;
+
+document.addEventListener("touchmove", () => {
+    touchMoved = true;
+});
+
+document.addEventListener("touchstart", () => {
+    touchMoved = false;
+});
+
+document.addEventListener("touchend", () => {
+    if (touchMoved) return;
+
+    const now = Date.now();
+
+    if (now - lastTap < 300) {
+        toggleFullscreen();
+    }
+
+    lastTap = now;
+});
+
+// ===== 全画面 =====
+function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+document.addEventListener("fullscreenchange", () => {
+    const btn = document.getElementById("fullBtn");
+
+    if (document.fullscreenElement) {
+        btn.textContent = "解除";
+    } else {
+        btn.textContent = "全画面";
+    }
+});
+
+// 初期
+updateColor();
+
+</script>
+
+</body>
+</html>

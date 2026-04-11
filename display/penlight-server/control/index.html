@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<button onclick="setColor('red')">赤</button>
+<button onclick="setColor('blue')">青</button>
+<button onclick="setColor('green')">緑</button>
+<button onclick="setColor('yellow')">黄</button>
+<button onclick="setColor('purple')">紫</button>
+<button onclick="setColor('pink')">ピンク</button>
+<button onclick="setColor('white')">白</button>
+<button onclick="setColor('orange')">オレンジ</button>
+<br>
+<button onclick="setBlink()">点滅</button>
+<button onclick="stopBlink()">通常</button>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+const socket = io("http://192.168.11.11:3000");
+
+socket.on("connect", () => {
+    console.log("接続成功");
+});
+
+function setColor(color){
+    console.log("送信:", color); 
+    socket.emit("changeColor", color);
+}
+
+function setBlink(){
+    socket.emit("mode", "blink");
+}
+
+function stopBlink(){
+    socket.emit("mode", "normal");
+}
+</script>
+
+</body>
+</html>
