@@ -10,6 +10,7 @@ const io = new Server(http, {
 
 // 👇これが重要
 app.use(express.static(__dirname + "/display"));
+app.use("/control", express.static(__dirname + "/control"));
 
 io.on("connection", (socket) => {
     console.log("connected");
