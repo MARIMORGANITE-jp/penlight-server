@@ -1,34 +1,149 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Fks Control</title>
+
+<style>
+
+body {
+
+    margin: 0;
+
+    background: #111;
+
+    color: white;
+
+    font-family: sans-serif;
+
+    padding: 20px;
+}
+
+h1 {
+
+    text-align: center;
+}
+
+.grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 15px;
+
+    margin-top: 20px;
+}
+
+.colorBtn {
+
+    height: 90px;
+
+    border: none;
+
+    border-radius: 20px;
+}
+
+.controlButtons {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 15px;
+
+    margin-top: 25px;
+}
+
+.controlButtons button {
+
+    height: 60px;
+
+    border: none;
+
+    border-radius: 15px;
+
+    font-size: 18px;
+
+    background: #222;
+
+    color: white;
+}
+
+</style>
+</head>
+
 <body>
 
-<h2>コントロール</h2>
+<h1>Fks Control</h1>
 
-<button onclick="setColor('red')">赤</button>
-<button onclick="setColor('blue')">青</button>
-<button onclick="setColor('green')">緑</button>
-<button onclick="setColor('yellow')">黄</button>
+<div class="grid">
 
-<br><br>
+<button class="colorBtn" style="background:#ff0000" onclick="sendColor('#ff0000')"></button>
 
-<button onclick="setMode('normal')">通常</button>
-<button onclick="setMode('blink')">点滅</button>
+<button class="colorBtn" style="background:#ff7b00" onclick="sendColor('#ff7b00')"></button>
+
+<button class="colorBtn" style="background:#ffff00" onclick="sendColor('#ffff00')"></button>
+
+<button class="colorBtn" style="background:#00ff00" onclick="sendColor('#00ff00')"></button>
+
+<button class="colorBtn" style="background:#00ffff" onclick="sendColor('#00ffff')"></button>
+
+<button class="colorBtn" style="background:#0000ff" onclick="sendColor('#0000ff')"></button>
+
+<button class="colorBtn" style="background:#8000ff" onclick="sendColor('#8000ff')"></button>
+
+<button class="colorBtn" style="background:#ff00ff" onclick="sendColor('#ff00ff')"></button>
+
+<button class="colorBtn" style="background:#ffffff" onclick="sendColor('#ffffff')"></button>
+
+</div>
+
+
+<div class="controlButtons">
+
+<button onclick="normalMode()">
+通常
+</button>
+
+<button onclick="blinkMode()">
+点滅
+</button>
+
+<button onclick="rainbowMode()">
+待機
+</button>
+
+</div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
 <script>
-const socket = io();
 
-socket.on("connect", () => {
-    console.log("接続成功");
-});
+const socket = io("http://192.168.11.13:3000");
 
-function setColor(color){
+function sendColor(color) {
+
     socket.emit("changeColor", color);
 }
 
-function setMode(mode){
-    socket.emit("mode", mode);
+function normalMode() {
+
+    socket.emit("mode", "normal");
 }
+
+function blinkMode() {
+
+    socket.emit("mode", "blink");
+}
+
+function rainbowMode() {
+
+    socket.emit("mode", "rainbow");
+}
+
 </script>
 
 </body>
