@@ -1,243 +1,374 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta charset="UTF-8">
-<title>Fks-Penlight</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Fks Penlight</title>
 
 <style>
+
 body {
     margin: 0;
     height: 100vh;
     background: black;
+    overflow: hidden;
+
     display: flex;
     justify-content: space-between;
     align-items: center;
-    overflow: hidden;
+
     touch-action: none;
+    transition: background 0.15s linear;
 }
 
-/* ペンライト */
+/* ペンライト画像 */
 #penlight {
     position: absolute;
+
     width: 40%;
+
     left: 50%;
     transform: translateX(-50%);
+
+    pointer-events: none;
 }
 
 /* 左右ボタン */
-button.main {
+.sideButton {
+
     width: 25%;
     height: 100%;
-    font-size: 30px;
-    background: rgba(255,255,255,0.1);
+
     border: none;
+
+    background: rgba(255,255,255,0.08);
+
     color: white;
+
+    font-size: 32px;
 }
 
-/* モードボタン */
+/* モード切替ボタン */
 #modeBtn {
-    position: absolute;
-    top: 15px;
-    left: 15px;
-    padding: 12px 18px;
-    border-radius: 999px;
-    border: none;
-    color: white;
-    background: linear-gradient(45deg, #444, #222);
-    transition: 0.3s;
-}
 
-#modeBtn.live {
-    background: linear-gradient(45deg, #ff416c, #ff4b2b);
-    box-shadow: 0 0 20px rgba(255,75,43,0.8);
-}
-
-/* 全画面ボタン */
-#fullBtn {
     position: absolute;
-    top: 15px;
-    right: 15px;
-    padding: 10px;
-    border-radius: 999px;
+
+    top: 12px;
+    left: 12px;
+
+    padding: 10px 14px;
+
     border: none;
+    border-radius: 10px;
+
     background: rgba(0,0,0,0.5);
+
     color: white;
+
+    font-size: 14px;
+
+    z-index: 10;
+
+    transition: all 0.2s ease;
 }
+
+/* ライブモード時 */
+.liveActive {
+
+    background: rgba(255, 80, 80, 0.9) !important;
+
+    box-shadow:
+        0 0 10px rgba(255,80,80,0.8),
+        0 0 25px rgba(255,80,80,0.7),
+        0 0 45px rgba(255,80,80,0.6);
+
+    color: white;
+
+    animation: pulse 1s infinite;
+}
+
+/* 発光アニメーション */
+@keyframes pulse {
+
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
 </style>
 </head>
 
 <body>
 
-<button class="main" onclick="prevColor()">◀</button>
-<button class="main" onclick="nextColor()">▶</button>
+<button class="sideButton" onclick="prevColor()">◀</button>
 
-<button id="modeBtn" onclick="toggleMode()">ライブモードにする</button>
-<button id="fullBtn" onclick="toggleFullscreen()">全画面</button>
+<button class="sideButton" onclick="nextColor()">▶</button>
+
+<button id="modeBtn" onclick="toggleMode()">
+通常モード
+</button>
 
 <img id="penlight" src="FksPenlight_WT.png">
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
 <script>
 
-// ===== 接続 =====
-const socket = io();
+const socket = io("http://192.168.11.13:3000");
 
-// ===== 色 =====
-const colors = ["red","orange","yellow","green","blue","purple","pink","white"];
+const colors = [
+
+    "#ff0000",
+    "#ff7b00",
+    "#ffff00",
+    "#00ff00",
+    "#00ffff",
+    "#0000ff",
+    "#8000ff",
+    "#ff00ff",
+    "#ffffff"
+
+];
 
 let index = 0;
-let currentColor = colors[0];
 
-// ===== 状態 =====
+let selfColor = colors[0];
+
+let liveColor = colors[0];
+
 let isLiveMode = false;
-let blinkInterval = null;
-let isOn = true;
 
-// ===== 色変更 =====
-function updateColor() {
-    currentColor = colors[index];
-    document.body.style.background = currentColor;
+let blinkInterval = null;
+
+let rainbowInterval = null;
+
+let isBlinkOn = true;
+
+let rainbowHue = 0;
+
+
+// =========================
+// 色適用
+// =========================
+function applyColor(color) {
+
+    document.body.style.background = color;
+}
+
+
+// =========================
+// 通常モード
+// =========================
+function updateSelfColor() {
+
+    selfColor = colors[index];
+
+    applyColor(selfColor);
 }
 
 function nextColor() {
+
     if (isLiveMode) return;
 
     index = (index + 1) % colors.length;
-    updateColor();
 
-    socket.emit("changeColor", currentColor);
+    updateSelfColor();
+
+    navigator.vibrate?.(20);
 }
 
 function prevColor() {
+
     if (isLiveMode) return;
 
     index = (index - 1 + colors.length) % colors.length;
-    updateColor();
 
-    socket.emit("changeColor", currentColor);
+    updateSelfColor();
+
+    navigator.vibrate?.(20);
 }
 
-// ===== モード切替 =====
+
+// =========================
+// スワイプ
+// =========================
+let startX = 0;
+
+document.addEventListener("touchstart", (e) => {
+
+    startX = e.touches[0].clientX;
+});
+
+document.addEventListener("touchend", (e) => {
+
+    if (isLiveMode) return;
+
+    const endX = e.changedTouches[0].clientX;
+
+    const diff = endX - startX;
+
+    if (Math.abs(diff) < 50) return;
+
+    if (diff > 0) {
+
+        prevColor();
+
+    } else {
+
+        nextColor();
+    }
+});
+
+
+// =========================
+// モード切替
+// =========================
 function toggleMode() {
+
     isLiveMode = !isLiveMode;
+
     const btn = document.getElementById("modeBtn");
 
     if (isLiveMode) {
-        btn.textContent = "ライブ中";
-        btn.classList.add("live");
+
+        btn.textContent = "ライブモード";
+
+        btn.classList.add("liveActive");
+
+        applyColor(liveColor);
+
     } else {
-        btn.textContent = "ローカル操作";
-        btn.classList.remove("live");
+
+        btn.textContent = "通常モード";
+
+        btn.classList.remove("liveActive");
+
         stopBlink();
-        updateColor();
+
+        stopRainbow();
+
+        applyColor(selfColor);
     }
+
+    navigator.vibrate?.(40);
 }
 
-// ===== Socket受信 =====
-socket.on("changeColor", (color) => {
-    currentColor = color;
 
-    if (isLiveMode && !blinkInterval) {
-        document.body.style.background = color;
+// =========================
+// Socket 色変更
+// =========================
+socket.on("changeColor", (color) => {
+
+    liveColor = color;
+
+    if (!isLiveMode) return;
+
+    if (!blinkInterval && !rainbowInterval) {
+
+        applyColor(liveColor);
     }
 });
 
+
+// =========================
+// Socket モード変更
+// =========================
 socket.on("mode", (mode) => {
+
     if (!isLiveMode) return;
 
-    if (mode === "blink") startBlink();
-    else stopBlink();
+    stopBlink();
+
+    stopRainbow();
+
+    if (mode === "blink") {
+
+        startBlink();
+
+    } else if (mode === "rainbow") {
+
+        startRainbow();
+
+    } else {
+
+        applyColor(liveColor);
+    }
 });
 
-// ===== 点滅 =====
+
+// =========================
+// 点滅
+// =========================
 function startBlink() {
+
     stopBlink();
-    isOn = true;
+
+    isBlinkOn = true;
 
     blinkInterval = setInterval(() => {
-        document.body.style.background = isOn ? currentColor : "black";
-        isOn = !isOn;
+
+        applyColor(
+            isBlinkOn ? liveColor : "black"
+        );
+
+        isBlinkOn = !isBlinkOn;
+
     }, 300);
 }
 
 function stopBlink() {
+
     if (blinkInterval) {
+
         clearInterval(blinkInterval);
+
         blinkInterval = null;
     }
-    document.body.style.background = currentColor;
 }
 
-// ===== スワイプ =====
-let startX = 0;
-let startY = 0;
 
-document.addEventListener("touchstart", (e) => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-});
+// =========================
+// 虹待機
+// =========================
+function startRainbow() {
 
-document.addEventListener("touchend", (e) => {
-    if (isLiveMode) return;
+    stopRainbow();
 
-    const endX = e.changedTouches[0].clientX;
-    const endY = e.changedTouches[0].clientY;
+    rainbowInterval = setInterval(() => {
 
-    const diffX = endX - startX;
-    const diffY = endY - startY;
+        rainbowHue = (rainbowHue + 1) % 360;
 
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
-        if (diffX > 0) prevColor();
-        else nextColor();
-    }
-});
+        applyColor(
+            `hsl(${rainbowHue}, 100%, 35%)`
+        );
 
-// ===== ダブルタップ全画面 =====
-let lastTap = 0;
-let touchMoved = false;
+    }, 40);
+}
 
-document.addEventListener("touchmove", () => {
-    touchMoved = true;
-});
+function stopRainbow() {
 
-document.addEventListener("touchstart", () => {
-    touchMoved = false;
-});
+    if (rainbowInterval) {
 
-document.addEventListener("touchend", () => {
-    if (touchMoved) return;
+        clearInterval(rainbowInterval);
 
-    const now = Date.now();
-
-    if (now - lastTap < 300) {
-        toggleFullscreen();
-    }
-
-    lastTap = now;
-});
-
-// ===== 全画面 =====
-function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-    } else {
-        document.exitFullscreen();
+        rainbowInterval = null;
     }
 }
 
-document.addEventListener("fullscreenchange", () => {
-    const btn = document.getElementById("fullBtn");
 
-    if (document.fullscreenElement) {
-        btn.textContent = "解除";
-    } else {
-        btn.textContent = "全画面";
-    }
-});
-
-// 初期
-updateColor();
+// =========================
+// 初期表示
+// =========================
+updateSelfColor();
 
 </script>
 
