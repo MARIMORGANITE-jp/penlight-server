@@ -7,55 +7,78 @@
 <title>Fks Penlight</title>
 
 <style>
+* {
+    box-sizing: border-box;
+}
 
 body {
     margin: 0;
     height: 100vh;
-    background: black;
     overflow: hidden;
+    background: black;
 
     display: flex;
     justify-content: space-between;
     align-items: center;
 
     touch-action: none;
-    transition: background 0.15s linear;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
-/* ペンライト画像 */
+#screen {
+    position: fixed;
+    inset: 0;
+    background: black;
+    z-index: 0;
+    transition: background 0.15s linear, filter 0.15s linear;
+    filter: brightness(100%);
+}
+
 #penlight {
     position: absolute;
-
     width: 40%;
-
     left: 50%;
-    transform: translateX(-50%);
-
+    top: 50%;
+    transform: translate(-50%, -50%);
     pointer-events: none;
+    z-index: 1;
 }
 
-/* 左右ボタン */
 .sideButton {
-
+    position: relative;
+    z-index: 2;
     width: 25%;
     height: 100%;
-
     border: none;
-
-    background: rgba(255,255,255,0.08);
-
+    background: rgba(255, 255, 255, 0.08);
     color: white;
-
     font-size: 32px;
 }
 
-/* モード切替ボタン */
 #modeBtn {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 3;
+
+    padding: 10px 14px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+#powerBtn {
 
     position: absolute;
 
-    top: 12px;
+    top: 60px;
     left: 12px;
+
+    z-index: 3;
 
     padding: 10px 14px;
 
@@ -67,66 +90,45 @@ body {
     color: white;
 
     font-size: 14px;
-
-    z-index: 10;
-
-    transition: all 0.2s ease;
 }
 
-/* ライブモード時 */
 .liveActive {
-
     background: rgba(255, 80, 80, 0.9) !important;
-
     box-shadow:
-        0 0 10px rgba(255,80,80,0.8),
-        0 0 25px rgba(255,80,80,0.7),
-        0 0 45px rgba(255,80,80,0.6);
-
+        0 0 10px rgba(255, 80, 80, 0.8),
+        0 0 25px rgba(255, 80, 80, 0.7),
+        0 0 45px rgba(255, 80, 80, 0.6);
     color: white;
-
     animation: pulse 1s infinite;
 }
 
-/* 発光アニメーション */
 @keyframes pulse {
-
-    0% {
-        transform: scale(1);
-    }
-
-    50% {
-        transform: scale(1.05);
-    }
-
-    100% {
-        transform: scale(1);
-    }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
 }
-
 </style>
 </head>
 
 <body>
+<div id="screen"></div>
 
 <button class="sideButton" onclick="prevColor()">◀</button>
-
 <button class="sideButton" onclick="nextColor()">▶</button>
 
-<button id="modeBtn" onclick="toggleMode()">
-通常モード
+<button id="modeBtn" onclick="toggleMode()">LIVE</button>
+
+<button id="powerBtn" onclick="toggleSelfPower()">
+OFF
 </button>
 
-<img id="penlight" src="FksPenlight_WT.png">
+<img id="penlight" src="FksPenlight_WT.png" alt="penlight">
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-
 <script>
-
 const socket = io("http://192.168.11.13:3000");
 
 const colors = [
-
     "#ff0000",
     "#ff7b00",
     "#ffff00",
@@ -136,241 +138,272 @@ const colors = [
     "#8000ff",
     "#ff00ff",
     "#ffffff"
-
 ];
 
 let index = 0;
-
 let selfColor = colors[0];
-
 let liveColor = colors[0];
 
 let isLiveMode = false;
+let forcedLive = false;
+let isPowerOn = true;
+
+let brightness = 100;
+let currentMode = "normal";
 
 let blinkInterval = null;
-
 let rainbowInterval = null;
 
 let isBlinkOn = true;
-
 let rainbowHue = 0;
 
+let selfPowerOff = false;
 
-// =========================
-// 色適用
-// =========================
-function applyColor(color) {
+const screen = document.getElementById("screen");
+const modeBtn = document.getElementById("modeBtn");
 
-    document.body.style.background = color;
+function setScreenColor(color) {
+
+    // 自分で消灯している
+    if (selfPowerOff) {
+
+        screen.style.background = "black";
+
+        return;
+    }
+
+    // 運営消灯
+    if (!isPowerOn) {
+
+        screen.style.background = "black";
+
+        return;
+    }
+
+    screen.style.background = color;
 }
 
 
-// =========================
-// 通常モード
-// =========================
-function updateSelfColor() {
+function toggleSelfPower() {
 
-    selfColor = colors[index];
+    selfPowerOff = !selfPowerOff;
 
-    applyColor(selfColor);
+    const btn =
+        document.getElementById("powerBtn");
+
+    if (selfPowerOff) {
+
+        btn.textContent = "ON";
+
+        screen.style.background = "black";
+
+    } else {
+
+        btn.textContent = "OFF";
+
+        syncDisplay();
+    }
+
+    navigator.vibrate?.(30);
+}
+
+function setBrightness(value) {
+    brightness = Number(value);
+    screen.style.filter = `brightness(${brightness}%)`;
+}
+
+function stopBlink() {
+    if (blinkInterval) {
+        clearInterval(blinkInterval);
+        blinkInterval = null;
+    }
+}
+
+function stopRainbow() {
+    if (rainbowInterval) {
+        clearInterval(rainbowInterval);
+        rainbowInterval = null;
+    }
+}
+
+function updateModeButton() {
+    if (forcedLive) {
+        modeBtn.textContent = "LIVE";
+        modeBtn.classList.add("liveActive");
+        modeBtn.disabled = true;
+        return;
+    }
+
+    modeBtn.disabled = false;
+
+    if (isLiveMode) {
+        modeBtn.textContent = "LIVE";
+        modeBtn.classList.add("liveActive");
+    } else {
+        modeBtn.textContent = "LIVE";
+        modeBtn.classList.remove("liveActive");
+    }
+}
+
+
+
+function startBlink() {
+    stopBlink();
+    stopRainbow();
+
+    isBlinkOn = true;
+
+    blinkInterval = setInterval(() => {
+        if (!isPowerOn) return;
+        setScreenColor(isBlinkOn ? liveColor : "black");
+        isBlinkOn = !isBlinkOn;
+    }, 300);
+}
+
+function startRainbow() {
+    stopBlink();
+    stopRainbow();
+
+    rainbowInterval = setInterval(() => {
+        if (!isPowerOn) return;
+
+        rainbowHue = (rainbowHue + 1) % 360;
+        setScreenColor(`hsl(${rainbowHue}, 100%, 35%)`);
+    }, 40);
+}
+
+function syncDisplay() {
+    updateModeButton();
+
+    if (!isPowerOn) {
+        stopBlink();
+        stopRainbow();
+        setScreenColor("black");
+        return;
+    }
+
+    if (isLiveMode || forcedLive) {
+        stopBlink();
+        stopRainbow();
+
+        if (currentMode === "blink") {
+            startBlink();
+        } else if (currentMode === "rainbow") {
+            startRainbow();
+        } else {
+            setScreenColor(liveColor);
+        }
+    } else {
+        stopBlink();
+        stopRainbow();
+        setScreenColor(selfColor);
+    }
 }
 
 function nextColor() {
-
-    if (isLiveMode) return;
+    if (isLiveMode || forcedLive) return;
 
     index = (index + 1) % colors.length;
+    selfColor = colors[index];
 
-    updateSelfColor();
+    if (isPowerOn) {
+        setScreenColor(selfColor);
+    }
 
     navigator.vibrate?.(20);
 }
 
 function prevColor() {
-
-    if (isLiveMode) return;
+    if (isLiveMode || forcedLive) return;
 
     index = (index - 1 + colors.length) % colors.length;
+    selfColor = colors[index];
 
-    updateSelfColor();
+    if (isPowerOn) {
+        setScreenColor(selfColor);
+    }
 
     navigator.vibrate?.(20);
 }
 
+function toggleMode() {
+    if (forcedLive) return;
 
-// =========================
-// スワイプ
-// =========================
+    isLiveMode = !isLiveMode;
+    syncDisplay();
+
+    navigator.vibrate?.(40);
+}
+
 let startX = 0;
 
 document.addEventListener("touchstart", (e) => {
-
     startX = e.touches[0].clientX;
 });
 
 document.addEventListener("touchend", (e) => {
-
-    if (isLiveMode) return;
+    if (isLiveMode || forcedLive) return;
 
     const endX = e.changedTouches[0].clientX;
-
     const diff = endX - startX;
 
     if (Math.abs(diff) < 50) return;
 
     if (diff > 0) {
-
         prevColor();
-
     } else {
-
         nextColor();
     }
 });
 
-
-// =========================
-// モード切替
-// =========================
-function toggleMode() {
-
-    isLiveMode = !isLiveMode;
-
-    const btn = document.getElementById("modeBtn");
-
-    if (isLiveMode) {
-
-        btn.textContent = "ライブモード";
-
-        btn.classList.add("liveActive");
-
-        applyColor(liveColor);
-
-    } else {
-
-        btn.textContent = "通常モード";
-
-        btn.classList.remove("liveActive");
-
-        stopBlink();
-
-        stopRainbow();
-
-        applyColor(selfColor);
-    }
-
-    navigator.vibrate?.(40);
-}
-
-
-// =========================
-// Socket 色変更
-// =========================
 socket.on("changeColor", (color) => {
-
     liveColor = color;
 
-    if (!isLiveMode) return;
-
-    if (!blinkInterval && !rainbowInterval) {
-
-        applyColor(liveColor);
+    if ((isLiveMode || forcedLive) && currentMode === "normal" && isPowerOn) {
+        setScreenColor(liveColor);
     }
+    
 });
 
-
-// =========================
-// Socket モード変更
-// =========================
 socket.on("mode", (mode) => {
+    currentMode = mode;
 
-    if (!isLiveMode) return;
-
-    stopBlink();
-
-    stopRainbow();
-
-    if (mode === "blink") {
-
-        startBlink();
-
-    } else if (mode === "rainbow") {
-
-        startRainbow();
-
-    } else {
-
-        applyColor(liveColor);
+    if (isLiveMode || forcedLive) {
+        syncDisplay();
     }
 });
 
+socket.on("forceLive", (state) => {
+    forcedLive = state;
 
-// =========================
-// 点滅
-// =========================
-function startBlink() {
-
-    stopBlink();
-
-    isBlinkOn = true;
-
-    blinkInterval = setInterval(() => {
-
-        applyColor(
-            isBlinkOn ? liveColor : "black"
-        );
-
-        isBlinkOn = !isBlinkOn;
-
-    }, 300);
-}
-
-function stopBlink() {
-
-    if (blinkInterval) {
-
-        clearInterval(blinkInterval);
-
-        blinkInterval = null;
+    if (forcedLive) {
+        isLiveMode = true;
+    } else {
+        isLiveMode = false;
     }
-}
 
+    syncDisplay();
+});
 
-// =========================
-// 虹待機
-// =========================
-function startRainbow() {
+socket.on("power", (state) => {
 
-    stopRainbow();
+    
+    if (!(isLiveMode || forcedLive)) return;
 
-    rainbowInterval = setInterval(() => {
+    isPowerOn = state;
 
-        rainbowHue = (rainbowHue + 1) % 360;
+    syncDisplay();
+});
 
-        applyColor(
-            `hsl(${rainbowHue}, 100%, 35%)`
-        );
+socket.on("brightness", (value) => {
 
-    }, 40);
-}
+    if (!(isLiveMode || forcedLive)) return;
 
-function stopRainbow() {
+    setBrightness(value);
+});
 
-    if (rainbowInterval) {
-
-        clearInterval(rainbowInterval);
-
-        rainbowInterval = null;
-    }
-}
-
-
-// =========================
-// 初期表示
-// =========================
-updateSelfColor();
-
+setBrightness(100);
+syncDisplay();
 </script>
-
 </body>
 </html>
