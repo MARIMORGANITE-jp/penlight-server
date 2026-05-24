@@ -4,147 +4,183 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
-<title>Fks Control</title>
+<title>Control</title>
 
 <style>
+* {
+    box-sizing: border-box;
+}
 
 body {
-
     margin: 0;
-
+    min-height: 100vh;
     background: #111;
-
     color: white;
-
     font-family: sans-serif;
-
     padding: 20px;
 }
 
 h1 {
-
     text-align: center;
+    margin-top: 0;
 }
 
-.grid {
-
-    display: grid;
-
-    grid-template-columns: repeat(3, 1fr);
-
-    gap: 15px;
-
+.section {
     margin-top: 20px;
 }
 
+.sectionTitle {
+    margin: 0 0 10px;
+    font-size: 16px;
+    opacity: 0.9;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
 .colorBtn {
-
-    height: 90px;
-
+    height: 80px;
     border: none;
-
-    border-radius: 20px;
+    border-radius: 18px;
 }
 
 .controlButtons {
-
-    display: flex;
-
-    flex-direction: column;
-
-    gap: 15px;
-
-    margin-top: 25px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
 }
 
-.controlButtons button {
-
-    height: 60px;
-
+.controlButtons button,
+.liveButtons button,
+.powerButtons button {
+    height: 56px;
     border: none;
-
-    border-radius: 15px;
-
-    font-size: 18px;
-
+    border-radius: 14px;
+    font-size: 16px;
     background: #222;
-
     color: white;
 }
 
+.rangeWrap {
+    margin-top: 10px;
+    background: #1b1b1b;
+    padding: 14px;
+    border-radius: 14px;
+}
+
+input[type="range"] {
+    width: 100%;
+}
+
+.valueRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 14px;
+    opacity: 0.9;
+}
 </style>
 </head>
 
 <body>
+<h1>Control</h1>
 
-<h1>Fks Control</h1>
-
-<div class="grid">
-
-<button class="colorBtn" style="background:#ff0000" onclick="sendColor('#ff0000')"></button>
-
-<button class="colorBtn" style="background:#ff7b00" onclick="sendColor('#ff7b00')"></button>
-
-<button class="colorBtn" style="background:#ffff00" onclick="sendColor('#ffff00')"></button>
-
-<button class="colorBtn" style="background:#00ff00" onclick="sendColor('#00ff00')"></button>
-
-<button class="colorBtn" style="background:#00ffff" onclick="sendColor('#00ffff')"></button>
-
-<button class="colorBtn" style="background:#0000ff" onclick="sendColor('#0000ff')"></button>
-
-<button class="colorBtn" style="background:#8000ff" onclick="sendColor('#8000ff')"></button>
-
-<button class="colorBtn" style="background:#ff00ff" onclick="sendColor('#ff00ff')"></button>
-
-<button class="colorBtn" style="background:#ffffff" onclick="sendColor('#ffffff')"></button>
-
+<div class="section">
+    <div class="sectionTitle">色</div>
+    <div class="grid">
+        <button class="colorBtn" style="background:#ff0000" onclick="sendColor('#ff0000')"></button>
+        <button class="colorBtn" style="background:#ff7b00" onclick="sendColor('#ff7b00')"></button>
+        <button class="colorBtn" style="background:#ffff00" onclick="sendColor('#ffff00')"></button>
+        <button class="colorBtn" style="background:#00ff00" onclick="sendColor('#00ff00')"></button>
+        <button class="colorBtn" style="background:#00ffff" onclick="sendColor('#00ffff')"></button>
+        <button class="colorBtn" style="background:#0000ff" onclick="sendColor('#0000ff')"></button>
+        <button class="colorBtn" style="background:#8000ff" onclick="sendColor('#8000ff')"></button>
+        <button class="colorBtn" style="background:#ff00ff" onclick="sendColor('#ff00ff')"></button>
+        <button class="colorBtn" style="background:#ffffff" onclick="sendColor('#ffffff')"></button>
+    </div>
 </div>
 
+<div class="section">
+    <div class="sectionTitle">演出</div>
+    <div class="controlButtons">
+        <button onclick="normalMode()">通常</button>
+        <button onclick="blinkMode()">点滅</button>
+        <button onclick="rainbowMode()">虹待機</button>
+        <button onclick="forceLiveOn()">強制ライブ開始</button>
+    </div>
+</div>
 
-<div class="controlButtons">
+<div class="section">
+    <div class="sectionTitle">状態</div>
+    <div class="controlButtons">
+        <button onclick="forceLiveOff()">強制ライブ解除</button>
+        <button onclick="powerOn()">点灯</button>
+        <button onclick="powerOff()">消灯</button>
+    </div>
+</div>
 
-<button onclick="normalMode()">
-通常
-</button>
-
-<button onclick="blinkMode()">
-点滅
-</button>
-
-<button onclick="rainbowMode()">
-待機
-</button>
-
+<div class="section">
+    <div class="sectionTitle">明るさ</div>
+    <div class="rangeWrap">
+        <div class="valueRow">
+            <span>フェーダー</span>
+            <span><span id="brightnessValue">100</span>%</span>
+        </div>
+        <input
+            id="brightnessSlider"
+            type="range"
+            min="0"
+            max="100"
+            value="100"
+            oninput="changeBrightness(this.value)"
+        >
+    </div>
 </div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-
 <script>
-
 const socket = io("http://192.168.11.13:3000");
 
 function sendColor(color) {
-
     socket.emit("changeColor", color);
 }
 
 function normalMode() {
-
     socket.emit("mode", "normal");
 }
 
 function blinkMode() {
-
     socket.emit("mode", "blink");
 }
 
 function rainbowMode() {
-
     socket.emit("mode", "rainbow");
 }
 
-</script>
+function forceLiveOn() {
+    socket.emit("forceLive", true);
+}
 
+function forceLiveOff() {
+    socket.emit("forceLive", false);
+}
+
+function powerOn() {
+    socket.emit("power", true);
+}
+
+function powerOff() {
+    socket.emit("power", false);
+}
+
+function changeBrightness(value) {
+    document.getElementById("brightnessValue").textContent = value;
+    socket.emit("brightness", Number(value));
+}
+</script>
 </body>
 </html>
