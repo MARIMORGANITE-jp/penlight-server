@@ -143,7 +143,7 @@ input[type="range"] {
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-const socket = io("http://192.168.11.13:3000");
+const socket = io();
 
 function sendColor(color) {
     socket.emit("changeColor", color);
