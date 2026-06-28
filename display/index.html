@@ -126,7 +126,7 @@ OFF
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-const socket = io();
+const socket = io("http://192.168.11.11:3000");
 
 const colors = [
     "#ff0000",
@@ -158,6 +158,8 @@ let isBlinkOn = true;
 let rainbowHue = 0;
 
 let selfPowerOff = false;
+
+let rainbowBaseColor = 0;
 
 const screen = document.getElementById("screen");
 const modeBtn = document.getElementById("modeBtn");
@@ -195,7 +197,7 @@ function toggleSelfPower() {
 
         btn.textContent = "ON";
 
-        screen.style.background = "black";
+        setScreenColor("black");
 
     } else {
 
@@ -227,20 +229,30 @@ function stopRainbow() {
 }
 
 function updateModeButton() {
+
     if (forcedLive) {
-        modeBtn.textContent = "LIVE";
+
+        modeBtn.textContent = "FORCED";
+
         modeBtn.classList.add("liveActive");
+
         modeBtn.disabled = true;
+
         return;
     }
 
     modeBtn.disabled = false;
 
     if (isLiveMode) {
+
         modeBtn.textContent = "LIVE";
+
         modeBtn.classList.add("liveActive");
+
     } else {
-        modeBtn.textContent = "LIVE";
+
+        modeBtn.textContent = "LIVE OFF";
+
         modeBtn.classList.remove("liveActive");
     }
 }
@@ -267,8 +279,14 @@ function startRainbow() {
     rainbowInterval = setInterval(() => {
         if (!isPowerOn) return;
 
-        rainbowHue = (rainbowHue + 1) % 360;
-        setScreenColor(`hsl(${rainbowHue}, 100%, 35%)`);
+       rainbowHue = (rainbowHue + 1) % 360;
+
+const hue =
+    (rainbowHue + rainbowBaseColor) % 360;
+
+setScreenColor(
+    `hsl(${hue},100%,35%)`
+);
     }, 40);
 }
 
@@ -335,6 +353,33 @@ function toggleMode() {
     navigator.vibrate?.(40);
 }
 
+function rgbToHue(r, g, b) {
+
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+
+    let h = 0;
+
+    if (max !== min) {
+
+        if (max === r) {
+            h = (60 * ((g - b) / (max - min)) + 360) % 360;
+        }
+        else if (max === g) {
+            h = 60 * ((b - r) / (max - min)) + 120;
+        }
+        else {
+            h = 60 * ((r - g) / (max - min)) + 240;
+        }
+    }
+
+    return h;
+}
+
 let startX = 0;
 
 document.addEventListener("touchstart", (e) => {
@@ -357,12 +402,42 @@ document.addEventListener("touchend", (e) => {
 });
 
 socket.on("changeColor", (color) => {
+
     liveColor = color;
 
-    if ((isLiveMode || forcedLive) && currentMode === "normal" && isPowerOn) {
+    if (!(isLiveMode || forcedLive)) return;
+
+    // 虹モード
+    if (currentMode === "rainbow") {
+
+        const temp = document.createElement("div");
+
+        temp.style.color = color;
+
+        document.body.appendChild(temp);
+
+        const rgb = getComputedStyle(temp).color;
+
+        document.body.removeChild(temp);
+
+        const match = rgb.match(/\d+/g);
+
+        if (match) {
+
+            rainbowBaseColor = rgbToHue(
+                Number(match[0]),
+                Number(match[1]),
+                Number(match[2])
+            );
+        }
+
+        return;
+    }
+
+    if (currentMode === "normal" && isPowerOn) {
+
         setScreenColor(liveColor);
     }
-    
 });
 
 socket.on("mode", (mode) => {
@@ -374,12 +449,22 @@ socket.on("mode", (mode) => {
 });
 
 socket.on("forceLive", (state) => {
+
     forcedLive = state;
 
     if (forcedLive) {
+
         isLiveMode = true;
+
     } else {
+
         isLiveMode = false;
+
+        currentMode = "normal";
+
+        isPowerOn = true;
+
+        setBrightness(100);
     }
 
     syncDisplay();
