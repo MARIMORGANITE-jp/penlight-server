@@ -136,14 +136,14 @@ input[type="range"] {
             min="0"
             max="100"
             value="100"
-            oninput="changeBrightness(this.value)"
+            onchange="changeBrightness(this.value)"
         >
     </div>
 </div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-const socket = io();
+const socket = io("http://192.168.11.11:3000");
 
 function sendColor(color) {
     socket.emit("changeColor", color);
@@ -162,10 +162,22 @@ function rainbowMode() {
 }
 
 function forceLiveOn() {
+
     socket.emit("forceLive", true);
+
+    socket.emit("power", true);
+
+    socket.emit("mode", "normal");
 }
 
 function forceLiveOff() {
+
+    socket.emit("mode", "normal");
+
+    socket.emit("power", true);
+
+    socket.emit("brightness", 100);
+
     socket.emit("forceLive", false);
 }
 
@@ -180,6 +192,21 @@ function powerOff() {
 function changeBrightness(value) {
     document.getElementById("brightnessValue").textContent = value;
     socket.emit("brightness", Number(value));
+}
+
+let timer;
+
+function changeBrightness(value){
+
+    document.getElementById("brightnessValue").textContent=value;
+
+    clearTimeout(timer);
+
+    timer=setTimeout(()=>{
+
+        socket.emit("brightness",Number(value));
+
+    },20);
 }
 </script>
 </body>
