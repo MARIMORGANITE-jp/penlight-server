@@ -14,8 +14,8 @@ const io = new Server(http, {
 // =========================
 // HTML公開
 // =========================
-app.use(express.static(__dirname));
-
+app.use(express.static(__dirname + "/display"));
+app.use("/control", express.static(__dirname + "/control"));
 // =========================
 // 状態保持
 // =========================
